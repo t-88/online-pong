@@ -3,14 +3,13 @@ ctx = canvas.getContext("2d")
 w  = canvas.getBoundingClientRect().width
 h  = canvas.getBoundingClientRect().height
 
-p1 = {}
-p2 = {}
+p  = []
 ball = {}
 keys = {}
 have_to_reset = true
 
 ball_init_speed = 3
-
+var player_id = 1 
 
 function AABB(a,b) {
     return a.x + a.w > b.x && a.y + a.h > b.y && b.x + b.w > a.x && b.y + b.h > a.y 
@@ -74,38 +73,48 @@ function SAT(aa,bb) {
 
 
 function reset() {
-    let p1 = {
-        x : 10,
-        y : (h - 100) / 2,
-        px : 10,
-        py : (h - 100) / 2,
-        w : 10,
-        h : 100,
-        vely : 5,
-    }
-    let p2 = {
-        x  :w - 20,
-        y : (h - 100) / 2,
-        px : 10,
-        py : (h - 100) / 2,
-        w : 10, 
-        h: 100,
-        vely : 5,
-    }    
+    const qStr = window.location.search
+    const urlPrams  = new URLSearchParams(qStr)
+
+    player_id = urlPrams.get("player_id")
+    let p = [
+        {
+            x : 10,
+            y : (h - 100) / 2,
+            px : 10,
+            py : (h - 100) / 2,
+            w : 10,
+            h : 100,
+            vely : 5,
+        },
+        {
+            x  :w - 20,
+            y : (h - 100) / 2,
+            px : 10,
+            py : (h - 100) / 2,
+            w : 10, 
+            h: 100,
+            vely : 5,
+        }    
+    ]
+    
     let keys = {
         "ArrowUp" : false,
         "ArrowDown" : false,
         "KeyW" : false,
         "KeyS" : false,
     }
+
+
+
     let ball = {
         x : (w - 10) / 2,
         y : (h - 10) / 2,
         w : 10,
         h : 10,
         vel : {
-            x : Math.floor(Math.random() * 10) + 1 ,
-            y : Math.floor(Math.random() * 10) + 1 ,
+            x :0,// Math.floor(Math.random() * 10) + 1 ,
+            y :0,// Math.floor(Math.random() * 10) + 1 ,
         }
     }    
 
@@ -116,14 +125,13 @@ function reset() {
     ball.vel.x *= ball_init_speed
     ball.vel.y *= ball_init_speed
 
-    return [p1,p2,keys,ball]
+    return [p,keys,ball]
 }
 
 function draw() {
     // clear screen
     ctx.fillStyle = "black"
     ctx.fillRect(0,0,w,h)
-
     
     // line
     ctx.fillStyle = "white"
@@ -131,29 +139,47 @@ function draw() {
     
     // p1
     ctx.fillStyle = "white"
-    ctx.fillRect(p1.x,p1.y,p1.w,p1.h)
+    ctx.fillRect(p[0].x,p[0].y,p[0].w,p[0].h)
 
     // p2
     ctx.fillStyle = "white"
-    ctx.fillRect(p2.x,p2.y,p2.w,p2.h)
+    ctx.fillRect(p[1].x,p[1].y,p[1].w,p[1].h)
 
     // ball
     ctx.fillStyle = "yellow"
     ctx.fillRect(ball.x,ball.y,ball.w,ball.h)
-
-
 }
 
-
-function  update() {
-    draw()
-
-
+let game_state = {}
+async function  update(){ 
+    game_state.have_to_reset = have_to_reset 
     if(have_to_reset) {
-        [p1,p2,keys,ball] =  reset()
         have_to_reset = false
+        let _ , __  
+        [_,keys,__] = reset()
     }
 
+    game_state.player_id = player_id
+    game_state.p = p[player_id - 1]
+
+    await fetch("/data?",{
+        method : "POST",
+        headers : {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(game_state),
+    })
+    .then((res) => res.text())
+    .then((data) => { 
+        data = JSON.parse(data)
+        p = [data.p1,data.p2]
+        ball = data.ball
+    }) 
+
+    draw()
+
+    // reset game state
+    game_state = {}
     if(ball.x > w) {
         have_to_reset = true
     } else if (ball.x + ball.w < 0) {
@@ -163,22 +189,24 @@ function  update() {
     if(ball.y < 0) {
         ball.y = 0
         ball.vel.y = -ball.vel.y
+        game_state.ball = ball
     } else if(ball.y + ball.h > h) {
         ball.y = h - ball.h
         ball.vel.y = -ball.vel.y
+        game_state.ball = ball
     }
 
 
 
-    let col1 = SAT(p1,ball) 
-    let col2 = SAT(p2,ball)
+    let col1 = SAT(p[0],ball) 
+    let col2 = SAT(p[1],ball)
     if(col1.did_collide || col2.did_collide) {
-        let p = col1.did_collide ? p1  : p2
+        let p_ = col1.did_collide ? p[0]  : p[1]
         col1 = col1.did_collide ? col1  : col2
         
         if(col1.normal[0] != 0 && col1.normal[0] != -0) {
             ball.vel.x = -ball.vel.x + Math.random() * 4
-            if(p == p1) {
+            if(p_ == p[0]) {
                 ball.x -= col1.depth * col1.normal[0]
             } else {
                 ball.x += col1.depth * col1.normal[0]
@@ -187,40 +215,42 @@ function  update() {
             ball.x -= col1.depth * col1.normal[0]
             ball.y -= col1.depth * col1.normal[1]
             ball.vel.x = -ball.vel.x + Math.random() * 4
-            ball.vel.y = Math.sign(p.y - p.py) * (5 + Math.random()/ 2) 
+            ball.vel.y = Math.sign(p_.y - p_.py) * (5 + Math.random()/ 2) 
         }
+
+        game_state.ball = ball
     }
 
-    ball.x += ball.vel.x
-    ball.y += ball.vel.y
 
     if(keys["ArrowUp"]) {
-        p1.py = p1.y 
-        p1.y -= p1.vely
-        if(p1.y < 0) {
-            p1.y = 0
+        p[0].py = p[0].y 
+        p[0].y -= p[0].vely
+        if(p[0].y < 0) {
+            p[0].y = 0
         }
     } else if (keys["ArrowDown"]) {
-        p1.py = p1.y 
-        p1.y += p1.vely
-        if(p1.y > h - p1.h) {
-            p1.y = h - p1.h
+        p[0].py = p[0].y 
+        p[0].y += p[0].vely
+        if(p[0].y > h - p[0].h) {
+            p[0].y = h - p[0].h
         }
     }
 
     if(keys["KeyW"]) {
-        p2.py = p2.y 
-        p2.y -= p2.vely
-        if(p2.y < 0) {
-            p2.y = 0
+        p[1].py = p[1].y 
+        p[1].y -= p[1].vely
+        if(p[1].y < 0) {
+            p[1].y = 0
         }        
+
     } else if (keys["KeyS"]) {
-        p2.py = p2.y 
-        p2.y += p2.vely
-        if(p2.y > h - p2.h) {
-            p2.y = h - p2.h
+        p[1].py = p[1].y 
+        p[1].y += p[1].vely
+        if(p[1].y > h - p[1].h) {
+            p[1].y = h - p[1].h
         }        
     }
+
 
 
     requestAnimationFrame(update)
@@ -242,3 +272,11 @@ function keyup(ev) {
 window.addEventListener("load",(ev) => { update() } )
 window.addEventListener("keydown",(ev) => {keydown(ev)})
 window.addEventListener("keyup",(ev) => {keyup(ev)})
+
+
+
+function on_btn_clk() {
+    fetch('/1')
+   .then(response => response.text())
+   .then(text => console.log(text))
+}
