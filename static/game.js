@@ -1,4 +1,5 @@
-canvas = document.getElementById("main-canvas")
+canvas = document.getElementById("app-canvas")
+
 ctx = canvas.getContext("2d")
 w  = canvas.getBoundingClientRect().width
 h  = canvas.getBoundingClientRect().height
@@ -15,7 +16,7 @@ have_to_reset = true
 
 ball_init_speed = 3
 var player_id = 1 
-
+var board_w = 0.1
 
 function get_player_id() {
     const qStr = window.location.search
@@ -34,11 +35,11 @@ function draw() {
     
     // p1
     ctx.fillStyle = "green"
-    ctx.fillRect(w - 20,p[0].y,p[0].w,p[0].h)
+    ctx.fillRect((1 - board_w * 2 ) * w,p[0].y,p[0].w,p[0].h)
 
     // p2
     ctx.fillStyle = "red"
-    ctx.fillRect(10,p[1].y,p[1].w,p[1].h)
+    ctx.fillRect(w * board_w,p[1].y,p[1].w,p[1].h)
 
 
     // ball
@@ -46,7 +47,7 @@ function draw() {
     if(parseInt(player_id) == 1) {
         ctx.fillRect(ball.x,ball.y,ball.w,ball.h)
     } else {
-        ctx.fillRect(w - ball.x  - 10,ball.y,ball.w,ball.h)
+        ctx.fillRect(w - ball.x  - w * board_w,ball.y,ball.w,ball.h)
     }
 }
 
@@ -74,6 +75,21 @@ async function  update(){
     .then((res) => res.text())
     .then((data) => { 
         data = JSON.parse(data)
+
+        board_w = data.board_w
+
+        data.p1.y = data.p1.y * h 
+        data.p2.y = data.p2.y * h 
+
+        data.p1.w = data.p1.w * w
+        data.p1.h = data.p1.h * h
+
+        data.p2.w = data.p2.w * w
+        data.p2.h = data.p2.h * h
+        
+
+
+
         if(player_id == 1) {
             p = [data.p1,data.p2]
         } else {
@@ -81,11 +97,19 @@ async function  update(){
             p = [data.p2,data.p1]
         }
         ball = data.ball
+        ball.x = ball.x * w
+        ball.y = ball.y * h
+        ball.w = ball.w * w
+        ball.h = ball.h * h
+        ball.vel.x = ball.vel.x * w
+        ball.vel.y = ball.vel.y * h
     }) 
     draw()
 
     // reset game state
     game_state = {}
+    game_state.w = w
+    game_state.h = h
     if(ball.x > w) {
         have_to_reset = true
     } else if (ball.x + ball.w < 0) {

@@ -2,12 +2,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Managment</title>
+    <link rel="stylesheet" href={{url_for("static",filename="style.css")}}>
 </head>
 <body>
-   <a href="/host_server">host_server</a>
-   <a href="/connect_to_server">connect_to_server</a>
+    <div id="server-option">
+        <a href="/host_server">Host Server</a>
+        <a href="/connect_to_server">Connect To Server</a>
+    </div>
 </body>
 
-<script src={{url_for("static",filename="server.js")}}></script>
 </html>
